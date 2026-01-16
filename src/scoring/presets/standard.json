@@ -23,6 +23,7 @@
     { "stat": "saved", "points": 5 },
     { "stat": "earned_runs", "points": -2 },
     { "stat": "walks", "points": -1 },
+    { "stat": "hit_batters", "points": -1 },
     { "stat": "hits_allowed", "points": -0.5 },
     { "stat": "home_runs_allowed", "points": -1 }
   ],
