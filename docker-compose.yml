@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mlb-fantasy-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-mlb}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mlb_dev_password}
+      POSTGRES_DB: ${DB_NAME:-mlb_fantasy}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-mlb}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: mlb-fantasy-db-test
+    environment:
+      POSTGRES_USER: mlb_test
+      POSTGRES_PASSWORD: mlb_test_password
+      POSTGRES_DB: mlb_fantasy_test
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+
+volumes:
+  postgres_data:

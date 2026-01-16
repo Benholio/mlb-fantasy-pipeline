@@ -1,0 +1,46 @@
+{
+  "id": "standard",
+  "name": "Standard Points League",
+  "description": "A balanced fantasy scoring system for head-to-head or rotisserie leagues",
+  "batting": [
+    { "stat": "runs", "points": 1 },
+    { "stat": "hits", "points": 0.5 },
+    { "stat": "doubles", "points": 0.5 },
+    { "stat": "triples", "points": 1 },
+    { "stat": "home_runs", "points": 4 },
+    { "stat": "runs_batted_in", "points": 1 },
+    { "stat": "stolen_bases", "points": 2 },
+    { "stat": "caught_stealing", "points": -1 },
+    { "stat": "walks", "points": 1 },
+    { "stat": "hit_by_pitch", "points": 1 },
+    { "stat": "strikeouts", "points": -0.5 }
+  ],
+  "pitching": [
+    { "stat": "outs_pitched", "points": 1, "perUnit": 3 },
+    { "stat": "strikeouts", "points": 1 },
+    { "stat": "won", "points": 5 },
+    { "stat": "lost", "points": -3 },
+    { "stat": "saved", "points": 5 },
+    { "stat": "earned_runs", "points": -2 },
+    { "stat": "walks", "points": -1 },
+    { "stat": "hits_allowed", "points": -0.5 },
+    { "stat": "home_runs_allowed", "points": -1 }
+  ],
+  "bonuses": [
+    {
+      "name": "Complete Game",
+      "conditions": [{ "stat": "complete_game", "op": "eq", "value": 1 }],
+      "logic": "AND",
+      "points": 3
+    },
+    {
+      "name": "Shutout",
+      "conditions": [
+        { "stat": "complete_game", "op": "eq", "value": 1 },
+        { "stat": "runs_allowed", "op": "eq", "value": 0 }
+      ],
+      "logic": "AND",
+      "points": 5
+    }
+  ]
+}

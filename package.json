@@ -1,0 +1,58 @@
+{
+  "name": "mlb-fantasy-pipeline",
+  "version": "1.0.0",
+  "description": "MLB historical game data pipeline with fantasy scoring engine",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mlb-fantasy": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/cli.ts",
+    "cli": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:migrate": "tsx src/db/migrations/runner.ts",
+    "db:reset": "tsx scripts/reset-db.ts",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "postgres": "^3.4.5",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.1",
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "ora": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.17.0",
+    "@typescript-eslint/eslint-plugin": "^8.19.0",
+    "@typescript-eslint/parser": "^8.19.0",
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "mlb",
+    "baseball",
+    "fantasy",
+    "retrosheet",
+    "statistics"
+  ],
+  "license": "MIT"
+}
