@@ -301,9 +301,278 @@ const statsCommand = new Command('stats')
     }
   });
 
+/**
+ * Format innings pitched from outs (e.g., 20 outs -> "6.2")
+ */
+function formatIP(outs: number): string {
+  const fullInnings = Math.floor(outs / 3);
+  const remainder = outs % 3;
+  return `${fullInnings}.${remainder}`;
+}
+
+/**
+ * Build a human-readable batting stat line
+ */
+function formatBattingLine(stats: {
+  hits: number;
+  doubles: number;
+  triples: number;
+  home_runs: number;
+  runs: number;
+  runs_batted_in: number;
+  walks: number;
+  stolen_bases: number;
+  hit_by_pitch: number;
+  at_bats: number;
+}): string {
+  const parts: string[] = [];
+
+  // Hits breakdown
+  const singles = stats.hits - stats.doubles - stats.triples - stats.home_runs;
+  if (stats.home_runs > 0) parts.push(`${stats.home_runs} HR`);
+  if (stats.triples > 0) parts.push(`${stats.triples} 3B`);
+  if (stats.doubles > 0) parts.push(`${stats.doubles} 2B`);
+  if (singles > 0) parts.push(`${singles} 1B`);
+
+  // Other stats
+  if (stats.runs > 0) parts.push(`${stats.runs} R`);
+  if (stats.runs_batted_in > 0) parts.push(`${stats.runs_batted_in} RBI`);
+  if (stats.walks > 0) parts.push(`${stats.walks} BB`);
+  if (stats.stolen_bases > 0) parts.push(`${stats.stolen_bases} SB`);
+  if (stats.hit_by_pitch > 0) parts.push(`${stats.hit_by_pitch} HBP`);
+
+  const hitLine = `${stats.hits}-${stats.at_bats}`;
+  return `${hitLine}, ${parts.join(', ')}`;
+}
+
+/**
+ * Build a human-readable pitching stat line
+ */
+function formatPitchingLine(stats: {
+  outs_pitched: number;
+  hits_allowed: number;
+  runs_allowed: number;
+  earned_runs: number;
+  walks: number;
+  strikeouts: number;
+  hit_batters: number;
+  won: boolean;
+  lost: boolean;
+  saved: boolean;
+  complete_game: boolean;
+}): string {
+  const parts: string[] = [];
+
+  // Decision
+  if (stats.won) parts.push('W');
+  if (stats.lost) parts.push('L');
+  if (stats.saved) parts.push('SV');
+  if (stats.complete_game) parts.push('CG');
+
+  // Core line: IP, H, R, ER, BB, K
+  parts.push(`${formatIP(stats.outs_pitched)} IP`);
+  parts.push(`${stats.hits_allowed} H`);
+  parts.push(`${stats.runs_allowed} R`);
+  parts.push(`${stats.earned_runs} ER`);
+  parts.push(`${stats.walks} BB`);
+  parts.push(`${stats.strikeouts} K`);
+
+  if (stats.hit_batters > 0) parts.push(`${stats.hit_batters} HBP`);
+
+  return parts.join(', ');
+}
+
+const topCommand = new Command('top')
+  .description('Get top fantasy performances for a date or date range')
+  .requiredOption('-r, --ruleset <id>', 'Ruleset ID')
+  .option('-d, --date <date>', 'Specific date (YYYY-MM-DD)')
+  .option('--start <date>', 'Start date for range (YYYY-MM-DD)')
+  .option('--end <date>', 'End date for range (YYYY-MM-DD)')
+  .option('-t, --type <type>', 'Filter by stat type: batting, pitching, or both', 'both')
+  .option('-n, --limit <n>', 'Number of results', '10')
+  .option('-f, --format <format>', 'Output format: table, json', 'table')
+  .action(async (options) => {
+    const sql = getSql();
+
+    try {
+      // Determine date range
+      let startDate: string;
+      let endDate: string;
+
+      if (options.date) {
+        startDate = options.date;
+        endDate = options.date;
+      } else if (options.start && options.end) {
+        startDate = options.start;
+        endDate = options.end;
+      } else {
+        console.error(chalk.red('Must specify either --date or both --start and --end'));
+        process.exit(1);
+      }
+
+      const limit = parseInt(options.limit, 10);
+      const showBatting = options.type === 'both' || options.type === 'batting';
+      const showPitching = options.type === 'both' || options.type === 'pitching';
+
+      interface BattingPerformance {
+        player_id: string;
+        game_id: string;
+        game_date: Date;
+        total_points: string;
+        // Raw stats
+        at_bats: number;
+        hits: number;
+        doubles: number;
+        triples: number;
+        home_runs: number;
+        runs: number;
+        runs_batted_in: number;
+        walks: number;
+        stolen_bases: number;
+        hit_by_pitch: number;
+      }
+
+      interface PitchingPerformance {
+        player_id: string;
+        game_id: string;
+        game_date: Date;
+        total_points: string;
+        // Raw stats
+        outs_pitched: number;
+        hits_allowed: number;
+        runs_allowed: number;
+        earned_runs: number;
+        walks: number;
+        strikeouts: number;
+        hit_batters: number;
+        won: boolean;
+        lost: boolean;
+        saved: boolean;
+        complete_game: boolean;
+      }
+
+      // Query top batting performances with raw stats
+      let battingResults: BattingPerformance[] = [];
+      if (showBatting) {
+        battingResults = await sql<BattingPerformance[]>`
+          SELECT
+            fgp.player_id,
+            fgp.game_id,
+            fgp.game_date,
+            fgp.total_points,
+            bgs.at_bats,
+            bgs.hits,
+            bgs.doubles,
+            bgs.triples,
+            bgs.home_runs,
+            bgs.runs,
+            bgs.runs_batted_in,
+            bgs.walks,
+            bgs.stolen_bases,
+            bgs.hit_by_pitch
+          FROM fantasy_game_points fgp
+          JOIN batter_game_stats bgs ON fgp.game_id = bgs.game_id AND fgp.player_id = bgs.player_id
+          WHERE fgp.ruleset_id = ${options.ruleset}
+            AND fgp.game_date >= ${startDate}::date
+            AND fgp.game_date <= ${endDate}::date
+            AND fgp.stat_type = 'batting'
+          ORDER BY fgp.total_points DESC
+          LIMIT ${limit}
+        `;
+      }
+
+      // Query top pitching performances with raw stats
+      let pitchingResults: PitchingPerformance[] = [];
+      if (showPitching) {
+        pitchingResults = await sql<PitchingPerformance[]>`
+          SELECT
+            fgp.player_id,
+            fgp.game_id,
+            fgp.game_date,
+            fgp.total_points,
+            pgs.outs_pitched,
+            pgs.hits_allowed,
+            pgs.runs_allowed,
+            pgs.earned_runs,
+            pgs.walks,
+            pgs.strikeouts,
+            pgs.hit_batters,
+            pgs.won,
+            pgs.lost,
+            pgs.saved,
+            pgs.complete_game
+          FROM fantasy_game_points fgp
+          JOIN pitcher_game_stats pgs ON fgp.game_id = pgs.game_id AND fgp.player_id = pgs.player_id
+          WHERE fgp.ruleset_id = ${options.ruleset}
+            AND fgp.game_date >= ${startDate}::date
+            AND fgp.game_date <= ${endDate}::date
+            AND fgp.stat_type = 'pitching'
+          ORDER BY fgp.total_points DESC
+          LIMIT ${limit}
+        `;
+      }
+
+      if (battingResults.length === 0 && pitchingResults.length === 0) {
+        console.log(chalk.yellow('No performances found for the specified date(s)'));
+        return;
+      }
+
+      if (options.format === 'json') {
+        console.log(JSON.stringify({ batting: battingResults, pitching: pitchingResults }, null, 2));
+        return;
+      }
+
+      const ruleset = await getRuleset(sql, options.ruleset);
+      const dateDisplay = startDate === endDate ? startDate : `${startDate} to ${endDate}`;
+
+      console.log(chalk.blue(`\nTop Performances - ${ruleset?.name ?? options.ruleset}`));
+      console.log(`Date: ${dateDisplay}`);
+
+      // Display batting results
+      if (battingResults.length > 0) {
+        console.log(chalk.cyan('\n=== Top Batting Performances ===\n'));
+
+        for (let i = 0; i < battingResults.length; i++) {
+          const r = battingResults[i]!;
+          const pts = parseFloat(r.total_points).toFixed(1);
+          const date = r.game_date.toISOString().split('T')[0];
+          const statLine = formatBattingLine(r);
+
+          console.log(chalk.white(`${i + 1}. ${r.player_id} - ${chalk.green(pts + ' pts')}`));
+          console.log(chalk.gray(`   ${date} | ${r.game_id}`));
+          console.log(chalk.yellow(`   ${statLine}`));
+          console.log();
+        }
+      }
+
+      // Display pitching results
+      if (pitchingResults.length > 0) {
+        console.log(chalk.cyan('\n=== Top Pitching Performances ===\n'));
+
+        for (let i = 0; i < pitchingResults.length; i++) {
+          const r = pitchingResults[i]!;
+          const pts = parseFloat(r.total_points).toFixed(1);
+          const date = r.game_date.toISOString().split('T')[0];
+          const statLine = formatPitchingLine(r);
+
+          console.log(chalk.white(`${i + 1}. ${r.player_id} - ${chalk.green(pts + ' pts')}`));
+          console.log(chalk.gray(`   ${date} | ${r.game_id}`));
+          console.log(chalk.yellow(`   ${statLine}`));
+          console.log();
+        }
+      }
+    } catch (error) {
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+      process.exit(1);
+    } finally {
+      await closeSql();
+    }
+  });
+
 export const queryCommand = new Command('query')
   .description('Query fantasy data')
   .addCommand(playerCommand)
   .addCommand(gameCommand)
   .addCommand(leadersCommand)
-  .addCommand(statsCommand);
+  .addCommand(statsCommand)
+  .addCommand(topCommand);
