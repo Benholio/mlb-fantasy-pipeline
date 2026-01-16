@@ -41,9 +41,9 @@ export async function upsertRuleset(sql: Sql, ruleset: FantasyRuleset): Promise<
       ${ruleset.id},
       ${ruleset.name},
       ${ruleset.description ?? null},
-      ${JSON.stringify(ruleset.batting)},
-      ${JSON.stringify(ruleset.pitching)},
-      ${ruleset.bonuses ? JSON.stringify(ruleset.bonuses) : null}
+      ${sql.json(ruleset.batting)},
+      ${sql.json(ruleset.pitching)},
+      ${ruleset.bonuses ? sql.json(ruleset.bonuses) : null}
     )
     ON CONFLICT (ruleset_id) DO UPDATE SET
       name = EXCLUDED.name,
@@ -130,7 +130,7 @@ export async function upsertFantasyGamePoints(
       ${points.player_id},
       ${points.stat_type},
       ${points.total_points},
-      ${JSON.stringify(points.breakdown)},
+      ${sql.json(points.breakdown)},
       ${points.game_date}::date
     )
     ON CONFLICT (ruleset_id, game_id, player_id, stat_type) DO UPDATE SET

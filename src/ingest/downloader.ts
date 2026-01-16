@@ -9,14 +9,28 @@ const DATA_DIR = join(__dirname, '../../data');
 export type DataType = 'batting' | 'pitching';
 
 /**
- * Get the URL for a retrosplits file
+ * Get the URL for the retrosplits playing file (contains both batting and pitching)
+ */
+export function getPlayingFileUrl(year: number): string {
+  return `${config.retrosplitsBaseUrl}/playing-${year}.csv`;
+}
+
+/**
+ * Get the local path for the playing file
+ */
+export function getPlayingFilePath(year: number): string {
+  return join(DATA_DIR, `playing-${year}.csv`);
+}
+
+/**
+ * @deprecated Use getPlayingFileUrl instead - retrosplits uses a unified playing file
  */
 export function getFileUrl(type: DataType, year: number): string {
   return `${config.retrosplitsBaseUrl}/${type}-${year}.csv`;
 }
 
 /**
- * Get the local path for a downloaded file
+ * @deprecated Use getPlayingFilePath instead - retrosplits uses a unified playing file
  */
 export function getLocalPath(type: DataType, year: number): string {
   return join(DATA_DIR, `${type}-${year}.csv`);
@@ -35,7 +49,44 @@ export async function fileExists(path: string): Promise<boolean> {
 }
 
 /**
- * Download a retrosplits CSV file
+ * Download the unified playing CSV file for a year
+ */
+export async function downloadPlayingFile(
+  year: number,
+  options: { force?: boolean } = {}
+): Promise<string> {
+  const localPath = getPlayingFilePath(year);
+
+  // Check if file already exists
+  if (!options.force && (await fileExists(localPath))) {
+    console.log(`File already exists: ${localPath}`);
+    return localPath;
+  }
+
+  // Ensure data directory exists
+  await mkdir(DATA_DIR, { recursive: true });
+
+  const url = getPlayingFileUrl(year);
+  console.log(`Downloading ${url}...`);
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(`Data not available for ${year} (404 Not Found)`);
+    }
+    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+  }
+
+  const content = await response.text();
+  await writeFile(localPath, content, 'utf-8');
+
+  console.log(`Downloaded to ${localPath} (${content.length} bytes)`);
+  return localPath;
+}
+
+/**
+ * @deprecated Use downloadPlayingFile instead - retrosplits uses a unified playing file
  */
 export async function downloadFile(
   type: DataType,

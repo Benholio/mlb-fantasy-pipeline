@@ -3,12 +3,11 @@ import ora from 'ora';
 import chalk from 'chalk';
 import { getSql, closeSql } from '../db/client.js';
 import { runMigrations } from '../db/migrations/runner.js';
-import { ingestYears, parseYearRange, type DataType } from '../ingest/index.js';
+import { ingestYears, parseYearRange } from '../ingest/index.js';
 
 export const ingestCommand = new Command('ingest')
   .description('Ingest Retrosheet data from retrosplits repository')
   .requiredOption('-y, --years <years>', 'Years to ingest (e.g., "2023", "2020-2023", "2020,2021,2022")')
-  .option('-t, --type <type>', 'Data type: batting, pitching, or both', 'both')
   .option('-f, --force', 'Force re-ingestion even if data exists', false)
   .option('--skip-download', 'Skip download, use existing local files', false)
   .option('--migrate', 'Run database migrations before ingesting', false)
@@ -33,34 +32,33 @@ export const ingestCommand = new Command('ingest')
 
       console.log(chalk.blue(`Ingesting data for years: ${years.join(', ')}`));
 
-      // Determine types to process
-      const types: DataType[] =
-        options.type === 'both' ? ['batting', 'pitching'] : [options.type as DataType];
+      // Ingest all data (batting + pitching from unified playing file)
+      const results = await ingestYears(sql, years, {
+        force: options.force,
+        skipDownload: options.skipDownload,
+      });
 
-      // Process each type
-      for (const type of types) {
-        console.log(chalk.cyan(`\n=== Processing ${type} data ===\n`));
+      // Summary
+      const successful = results.filter((r) => !r.error && !r.skipped);
+      const skipped = results.filter((r) => r.skipped);
+      const failed = results.filter((r) => r.error);
 
-        const results = await ingestYears(sql, type, years, {
-          force: options.force,
-          skipDownload: options.skipDownload,
-        });
+      console.log(chalk.green('\nIngestion summary:'));
+      console.log(`  Successful: ${successful.length}`);
+      console.log(`  Skipped: ${skipped.length}`);
+      console.log(`  Failed: ${failed.length}`);
 
-        // Summary
-        const successful = results.filter((r) => !r.error && !r.skipped);
-        const skipped = results.filter((r) => r.skipped);
-        const failed = results.filter((r) => r.error);
+      if (successful.length > 0) {
+        const totalBatting = successful.reduce((sum, r) => sum + (r.battingRows ?? 0), 0);
+        const totalPitching = successful.reduce((sum, r) => sum + (r.pitchingRows ?? 0), 0);
+        console.log(`  Total batting rows: ${totalBatting.toLocaleString()}`);
+        console.log(`  Total pitching rows: ${totalPitching.toLocaleString()}`);
+      }
 
-        console.log(chalk.green(`\n${type} ingestion summary:`));
-        console.log(`  Successful: ${successful.length}`);
-        console.log(`  Skipped: ${skipped.length}`);
-        console.log(`  Failed: ${failed.length}`);
-
-        if (failed.length > 0) {
-          console.log(chalk.red('\nFailed years:'));
-          for (const f of failed) {
-            console.log(`  ${f.year}: ${f.error}`);
-          }
+      if (failed.length > 0) {
+        console.log(chalk.red('\nFailed years:'));
+        for (const f of failed) {
+          console.log(`  ${f.year}: ${f.error}`);
         }
       }
 

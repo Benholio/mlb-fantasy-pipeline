@@ -7,18 +7,19 @@ export * from './db/queries/index.js';
 
 // Ingestion
 export {
-  downloadFile,
+  downloadPlayingFile,
   parseBattingCSV,
   parsePitchingCSV,
   parseCSV,
-  loadToStaging,
-  transformData,
+  loadPlayingToStaging,
+  transformBattingData,
+  transformPitchingData,
   ingestYear,
   ingestYears,
   parseYearRange,
   type DataType,
   type IngestOptions,
-  type IngestResult,
+  type UnifiedIngestResult,
 } from './ingest/index.js';
 
 // Scoring
