@@ -388,6 +388,7 @@ const topCommand = new Command('top')
   .option('-d, --date <date>', 'Specific date (YYYY-MM-DD)')
   .option('--start <date>', 'Start date for range (YYYY-MM-DD)')
   .option('--end <date>', 'End date for range (YYYY-MM-DD)')
+  .option('--month-day <MM-DD>', 'Query a specific day across all years (e.g., 07-04 for July 4th)')
   .option('-t, --type <type>', 'Filter by stat type: batting, pitching, or both', 'both')
   .option('-n, --limit <n>', 'Number of results', '10')
   .option('-f, --format <format>', 'Output format: table, json', 'table')
@@ -395,18 +396,31 @@ const topCommand = new Command('top')
     const sql = getSql();
 
     try {
-      // Determine date range
-      let startDate: string;
-      let endDate: string;
+      // Determine query mode: month-day across years, specific date, or date range
+      let startDate: string | null = null;
+      let endDate: string | null = null;
+      let monthDay: { month: number; day: number } | null = null;
 
-      if (options.date) {
+      if (options.monthDay) {
+        // Parse MM-DD format
+        const match = options.monthDay.match(/^(\d{1,2})-(\d{1,2})$/);
+        if (!match) {
+          console.error(chalk.red('Invalid --month-day format. Use MM-DD (e.g., 07-04)'));
+          process.exit(1);
+        }
+        monthDay = { month: parseInt(match[1], 10), day: parseInt(match[2], 10) };
+        if (monthDay.month < 1 || monthDay.month > 12 || monthDay.day < 1 || monthDay.day > 31) {
+          console.error(chalk.red('Invalid month or day value'));
+          process.exit(1);
+        }
+      } else if (options.date) {
         startDate = options.date;
         endDate = options.date;
       } else if (options.start && options.end) {
         startDate = options.start;
         endDate = options.end;
       } else {
-        console.error(chalk.red('Must specify either --date or both --start and --end'));
+        console.error(chalk.red('Must specify --date, --month-day, or both --start and --end'));
         process.exit(1);
       }
 
@@ -416,6 +430,7 @@ const topCommand = new Command('top')
 
       interface BattingPerformance {
         player_id: string;
+        player_name: string | null;
         game_id: string;
         game_date: Date;
         total_points: string;
@@ -434,6 +449,7 @@ const topCommand = new Command('top')
 
       interface PitchingPerformance {
         player_id: string;
+        player_name: string | null;
         game_id: string;
         game_date: Date;
         total_points: string;
@@ -454,62 +470,127 @@ const topCommand = new Command('top')
       // Query top batting performances with raw stats
       let battingResults: BattingPerformance[] = [];
       if (showBatting) {
-        battingResults = await sql<BattingPerformance[]>`
-          SELECT
-            fgp.player_id,
-            fgp.game_id,
-            fgp.game_date,
-            fgp.total_points,
-            bgs.at_bats,
-            bgs.hits,
-            bgs.doubles,
-            bgs.triples,
-            bgs.home_runs,
-            bgs.runs,
-            bgs.runs_batted_in,
-            bgs.walks,
-            bgs.stolen_bases,
-            bgs.hit_by_pitch
-          FROM fantasy_game_points fgp
-          JOIN batter_game_stats bgs ON fgp.game_id = bgs.game_id AND fgp.player_id = bgs.player_id
-          WHERE fgp.ruleset_id = ${options.ruleset}
-            AND fgp.game_date >= ${startDate}::date
-            AND fgp.game_date <= ${endDate}::date
-            AND fgp.stat_type = 'batting'
-          ORDER BY fgp.total_points DESC
-          LIMIT ${limit}
-        `;
+        if (monthDay) {
+          battingResults = await sql<BattingPerformance[]>`
+            SELECT
+              fgp.player_id,
+              CASE WHEN p.name_first IS NOT NULL THEN p.name_first || ' ' || p.name_last ELSE NULL END as player_name,
+              fgp.game_id,
+              fgp.game_date,
+              fgp.total_points,
+              bgs.at_bats,
+              bgs.hits,
+              bgs.doubles,
+              bgs.triples,
+              bgs.home_runs,
+              bgs.runs,
+              bgs.runs_batted_in,
+              bgs.walks,
+              bgs.stolen_bases,
+              bgs.hit_by_pitch
+            FROM fantasy_game_points fgp
+            JOIN batter_game_stats bgs ON fgp.game_id = bgs.game_id AND fgp.player_id = bgs.player_id
+            LEFT JOIN players p ON fgp.player_id = p.player_id
+            WHERE fgp.ruleset_id = ${options.ruleset}
+              AND EXTRACT(MONTH FROM fgp.game_date) = ${monthDay.month}
+              AND EXTRACT(DAY FROM fgp.game_date) = ${monthDay.day}
+              AND fgp.stat_type = 'batting'
+            ORDER BY fgp.total_points DESC
+            LIMIT ${limit}
+          `;
+        } else {
+          battingResults = await sql<BattingPerformance[]>`
+            SELECT
+              fgp.player_id,
+              CASE WHEN p.name_first IS NOT NULL THEN p.name_first || ' ' || p.name_last ELSE NULL END as player_name,
+              fgp.game_id,
+              fgp.game_date,
+              fgp.total_points,
+              bgs.at_bats,
+              bgs.hits,
+              bgs.doubles,
+              bgs.triples,
+              bgs.home_runs,
+              bgs.runs,
+              bgs.runs_batted_in,
+              bgs.walks,
+              bgs.stolen_bases,
+              bgs.hit_by_pitch
+            FROM fantasy_game_points fgp
+            JOIN batter_game_stats bgs ON fgp.game_id = bgs.game_id AND fgp.player_id = bgs.player_id
+            LEFT JOIN players p ON fgp.player_id = p.player_id
+            WHERE fgp.ruleset_id = ${options.ruleset}
+              AND fgp.game_date >= ${startDate}::date
+              AND fgp.game_date <= ${endDate}::date
+              AND fgp.stat_type = 'batting'
+            ORDER BY fgp.total_points DESC
+            LIMIT ${limit}
+          `;
+        }
       }
 
       // Query top pitching performances with raw stats
       let pitchingResults: PitchingPerformance[] = [];
       if (showPitching) {
-        pitchingResults = await sql<PitchingPerformance[]>`
-          SELECT
-            fgp.player_id,
-            fgp.game_id,
-            fgp.game_date,
-            fgp.total_points,
-            pgs.outs_pitched,
-            pgs.hits_allowed,
-            pgs.runs_allowed,
-            pgs.earned_runs,
-            pgs.walks,
-            pgs.strikeouts,
-            pgs.hit_batters,
-            pgs.won,
-            pgs.lost,
-            pgs.saved,
-            pgs.complete_game
-          FROM fantasy_game_points fgp
-          JOIN pitcher_game_stats pgs ON fgp.game_id = pgs.game_id AND fgp.player_id = pgs.player_id
-          WHERE fgp.ruleset_id = ${options.ruleset}
-            AND fgp.game_date >= ${startDate}::date
-            AND fgp.game_date <= ${endDate}::date
-            AND fgp.stat_type = 'pitching'
-          ORDER BY fgp.total_points DESC
-          LIMIT ${limit}
-        `;
+        if (monthDay) {
+          pitchingResults = await sql<PitchingPerformance[]>`
+            SELECT
+              fgp.player_id,
+              CASE WHEN p.name_first IS NOT NULL THEN p.name_first || ' ' || p.name_last ELSE NULL END as player_name,
+              fgp.game_id,
+              fgp.game_date,
+              fgp.total_points,
+              pgs.outs_pitched,
+              pgs.hits_allowed,
+              pgs.runs_allowed,
+              pgs.earned_runs,
+              pgs.walks,
+              pgs.strikeouts,
+              pgs.hit_batters,
+              pgs.won,
+              pgs.lost,
+              pgs.saved,
+              pgs.complete_game
+            FROM fantasy_game_points fgp
+            JOIN pitcher_game_stats pgs ON fgp.game_id = pgs.game_id AND fgp.player_id = pgs.player_id
+            LEFT JOIN players p ON fgp.player_id = p.player_id
+            WHERE fgp.ruleset_id = ${options.ruleset}
+              AND EXTRACT(MONTH FROM fgp.game_date) = ${monthDay.month}
+              AND EXTRACT(DAY FROM fgp.game_date) = ${monthDay.day}
+              AND fgp.stat_type = 'pitching'
+            ORDER BY fgp.total_points DESC
+            LIMIT ${limit}
+          `;
+        } else {
+          pitchingResults = await sql<PitchingPerformance[]>`
+            SELECT
+              fgp.player_id,
+              CASE WHEN p.name_first IS NOT NULL THEN p.name_first || ' ' || p.name_last ELSE NULL END as player_name,
+              fgp.game_id,
+              fgp.game_date,
+              fgp.total_points,
+              pgs.outs_pitched,
+              pgs.hits_allowed,
+              pgs.runs_allowed,
+              pgs.earned_runs,
+              pgs.walks,
+              pgs.strikeouts,
+              pgs.hit_batters,
+              pgs.won,
+              pgs.lost,
+              pgs.saved,
+              pgs.complete_game
+            FROM fantasy_game_points fgp
+            JOIN pitcher_game_stats pgs ON fgp.game_id = pgs.game_id AND fgp.player_id = pgs.player_id
+            LEFT JOIN players p ON fgp.player_id = p.player_id
+            WHERE fgp.ruleset_id = ${options.ruleset}
+              AND fgp.game_date >= ${startDate}::date
+              AND fgp.game_date <= ${endDate}::date
+              AND fgp.stat_type = 'pitching'
+            ORDER BY fgp.total_points DESC
+            LIMIT ${limit}
+          `;
+        }
       }
 
       if (battingResults.length === 0 && pitchingResults.length === 0) {
@@ -523,7 +604,14 @@ const topCommand = new Command('top')
       }
 
       const ruleset = await getRuleset(sql, options.ruleset);
-      const dateDisplay = startDate === endDate ? startDate : `${startDate} to ${endDate}`;
+      let dateDisplay: string;
+      if (monthDay) {
+        const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'];
+        dateDisplay = `${monthNames[monthDay.month]} ${monthDay.day} (all years)`;
+      } else {
+        dateDisplay = startDate === endDate ? startDate! : `${startDate} to ${endDate}`;
+      }
 
       console.log(chalk.blue(`\nTop Performances - ${ruleset?.name ?? options.ruleset}`));
       console.log(`Date: ${dateDisplay}`);
@@ -537,8 +625,9 @@ const topCommand = new Command('top')
           const pts = parseFloat(r.total_points).toFixed(1);
           const date = r.game_date.toISOString().split('T')[0];
           const statLine = formatBattingLine(r);
+          const playerDisplay = r.player_name || r.player_id;
 
-          console.log(chalk.white(`${i + 1}. ${r.player_id} - ${chalk.green(pts + ' pts')}`));
+          console.log(chalk.white(`${i + 1}. ${playerDisplay} - ${chalk.green(pts + ' pts')}`));
           console.log(chalk.gray(`   ${date} | ${r.game_id}`));
           console.log(chalk.yellow(`   ${statLine}`));
           console.log();
@@ -554,8 +643,9 @@ const topCommand = new Command('top')
           const pts = parseFloat(r.total_points).toFixed(1);
           const date = r.game_date.toISOString().split('T')[0];
           const statLine = formatPitchingLine(r);
+          const playerDisplay = r.player_name || r.player_id;
 
-          console.log(chalk.white(`${i + 1}. ${r.player_id} - ${chalk.green(pts + ' pts')}`));
+          console.log(chalk.white(`${i + 1}. ${playerDisplay} - ${chalk.green(pts + ' pts')}`));
           console.log(chalk.gray(`   ${date} | ${r.game_id}`));
           console.log(chalk.yellow(`   ${statLine}`));
           console.log();

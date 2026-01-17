@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { ingestCommand } from './commands/ingest.js';
+import { ingestCommand, syncPlayersCommand } from './commands/ingest.js';
 import { scoreCommand } from './commands/score.js';
 import { queryCommand } from './commands/query.js';
 
@@ -13,6 +13,7 @@ program
   .version('1.0.0');
 
 program.addCommand(ingestCommand);
+program.addCommand(syncPlayersCommand);
 program.addCommand(scoreCommand);
 program.addCommand(queryCommand);
 

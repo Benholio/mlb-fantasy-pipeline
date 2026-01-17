@@ -14,6 +14,7 @@ export interface DatabaseConfig {
 export interface Config {
   database: DatabaseConfig;
   retrosplitsBaseUrl: string;
+  registerBaseUrl: string;
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -51,6 +52,10 @@ export function loadConfig(): Config {
     retrosplitsBaseUrl: getEnv(
       'RETROSPLITS_BASE_URL',
       'https://raw.githubusercontent.com/chadwickbureau/retrosplits/master/daybyday'
+    ),
+    registerBaseUrl: getEnv(
+      'REGISTER_BASE_URL',
+      'https://raw.githubusercontent.com/chadwickbureau/register/master/data'
     ),
   };
 }

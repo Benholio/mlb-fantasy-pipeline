@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { getSql, closeSql } from '../db/client.js';
 import { runMigrations } from '../db/migrations/runner.js';
 import { ingestYears, parseYearRange } from '../ingest/index.js';
+import { syncPlayerNames } from '../ingest/players.js';
 
 export const ingestCommand = new Command('ingest')
   .description('Ingest Retrosheet data from retrosplits repository')
@@ -65,6 +66,38 @@ export const ingestCommand = new Command('ingest')
       console.log(chalk.green('\nIngestion complete!'));
     } catch (error) {
       spinner.fail('Ingestion failed');
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+      process.exit(1);
+    } finally {
+      await closeSql();
+    }
+  });
+
+export const syncPlayersCommand = new Command('sync-players')
+  .description('Sync player names from the Chadwick register')
+  .option('--migrate', 'Run database migrations before syncing', false)
+  .action(async (options) => {
+    const sql = getSql();
+    const spinner = ora();
+
+    try {
+      if (options.migrate) {
+        spinner.start('Running database migrations...');
+        await runMigrations(sql);
+        spinner.succeed('Migrations complete');
+      }
+
+      spinner.start('Syncing player names from Chadwick register...');
+      const result = await syncPlayerNames(sql);
+      spinner.succeed(`Synced ${result.updated} player names`);
+
+      if (result.total > result.updated) {
+        console.log(
+          chalk.yellow(`Note: ${result.total - result.updated} players could not be found in register`)
+        );
+      }
+    } catch (error) {
+      spinner.fail('Player sync failed');
       console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     } finally {
