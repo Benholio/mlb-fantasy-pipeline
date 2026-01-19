@@ -389,6 +389,8 @@ const topCommand = new Command('top')
   .option('--start <date>', 'Start date for range (YYYY-MM-DD)')
   .option('--end <date>', 'End date for range (YYYY-MM-DD)')
   .option('--month-day <MM-DD>', 'Query a specific day across all years (e.g., 07-04 for July 4th)')
+  .option('--year-start <year>', 'Lower bound year for --month-day queries (e.g., 2000)')
+  .option('--year-end <year>', 'Upper bound year for --month-day queries (e.g., 2025)')
   .option('-t, --type <type>', 'Filter by stat type: batting, pitching, or both', 'both')
   .option('-n, --limit <n>', 'Number of results', '10')
   .option('-f, --format <format>', 'Output format: table, json', 'table')
@@ -400,6 +402,29 @@ const topCommand = new Command('top')
       let startDate: string | null = null;
       let endDate: string | null = null;
       let monthDay: { month: number; day: number } | null = null;
+
+      // Parse year range options
+      let yearStart: number | null = null;
+      let yearEnd: number | null = null;
+
+      if (options.yearStart) {
+        yearStart = parseInt(options.yearStart, 10);
+        if (isNaN(yearStart) || yearStart < 1870 || yearStart > 2100) {
+          console.error(chalk.red('Invalid --year-start value. Use a year between 1870 and 2100.'));
+          process.exit(1);
+        }
+      }
+      if (options.yearEnd) {
+        yearEnd = parseInt(options.yearEnd, 10);
+        if (isNaN(yearEnd) || yearEnd < 1870 || yearEnd > 2100) {
+          console.error(chalk.red('Invalid --year-end value. Use a year between 1870 and 2100.'));
+          process.exit(1);
+        }
+      }
+      if (yearStart !== null && yearEnd !== null && yearStart > yearEnd) {
+        console.error(chalk.red('--year-start cannot be greater than --year-end'));
+        process.exit(1);
+      }
 
       if (options.monthDay) {
         // Parse MM-DD format
@@ -413,6 +438,9 @@ const topCommand = new Command('top')
           console.error(chalk.red('Invalid month or day value'));
           process.exit(1);
         }
+      } else if (options.yearStart || options.yearEnd) {
+        console.error(chalk.red('--year-start and --year-end can only be used with --month-day'));
+        process.exit(1);
       } else if (options.date) {
         startDate = options.date;
         endDate = options.date;
@@ -495,6 +523,8 @@ const topCommand = new Command('top')
               AND EXTRACT(MONTH FROM fgp.game_date) = ${monthDay.month}
               AND EXTRACT(DAY FROM fgp.game_date) = ${monthDay.day}
               AND fgp.stat_type = 'batting'
+              ${yearStart !== null ? sql`AND EXTRACT(YEAR FROM fgp.game_date) >= ${yearStart}` : sql``}
+              ${yearEnd !== null ? sql`AND EXTRACT(YEAR FROM fgp.game_date) <= ${yearEnd}` : sql``}
             ORDER BY fgp.total_points DESC
             LIMIT ${limit}
           `;
@@ -558,6 +588,8 @@ const topCommand = new Command('top')
               AND EXTRACT(MONTH FROM fgp.game_date) = ${monthDay.month}
               AND EXTRACT(DAY FROM fgp.game_date) = ${monthDay.day}
               AND fgp.stat_type = 'pitching'
+              ${yearStart !== null ? sql`AND EXTRACT(YEAR FROM fgp.game_date) >= ${yearStart}` : sql``}
+              ${yearEnd !== null ? sql`AND EXTRACT(YEAR FROM fgp.game_date) <= ${yearEnd}` : sql``}
             ORDER BY fgp.total_points DESC
             LIMIT ${limit}
           `;
@@ -608,7 +640,17 @@ const topCommand = new Command('top')
       if (monthDay) {
         const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
           'July', 'August', 'September', 'October', 'November', 'December'];
-        dateDisplay = `${monthNames[monthDay.month]} ${monthDay.day} (all years)`;
+        let yearRange: string;
+        if (yearStart !== null && yearEnd !== null) {
+          yearRange = `${yearStart}-${yearEnd}`;
+        } else if (yearStart !== null) {
+          yearRange = `${yearStart}+`;
+        } else if (yearEnd !== null) {
+          yearRange = `through ${yearEnd}`;
+        } else {
+          yearRange = 'all years';
+        }
+        dateDisplay = `${monthNames[monthDay.month]} ${monthDay.day} (${yearRange})`;
       } else {
         dateDisplay = startDate === endDate ? startDate! : `${startDate} to ${endDate}`;
       }
