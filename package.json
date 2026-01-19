@@ -8,9 +8,17 @@
   "bin": {
     "mlb-fantasy": "dist/cli.js"
   },
+  "workspaces": [
+    "api",
+    "web"
+  ],
   "scripts": {
     "build": "tsc",
+    "build:all": "npm run build && npm run build -w api && npm run build -w web",
     "dev": "tsx watch src/cli.ts",
+    "dev:api": "npm run dev -w api",
+    "dev:web": "npm run dev -w web",
+    "dev:all": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "cli": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -42,7 +50,8 @@
     "eslint": "^9.17.0",
     "@typescript-eslint/eslint-plugin": "^8.19.0",
     "@typescript-eslint/parser": "^8.19.0",
-    "prettier": "^3.4.2"
+    "prettier": "^3.4.2",
+    "concurrently": "^9.1.0"
   },
   "engines": {
     "node": ">=20.0.0"
