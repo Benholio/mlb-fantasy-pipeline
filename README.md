@@ -311,26 +311,18 @@ const leaders = await getFantasyLeaderboard(sql, 'standard', { year: 2023 });
 
 This project uses data from the [Chadwick Bureau retrosplits repository](https://github.com/chadwickbureau/retrosplits), which is derived from [Retrosheet](https://www.retrosheet.org/).
 
-### Important Notes
-
-- **This repository does not contain or redistribute raw Retrosheet data**
-- Data is downloaded on-demand from the retrosplits repository
-- We store only derived statistics, not original play-by-play data
-
 ### Retrosheet Notice
 
-> The information used here was obtained free of charge from and is copyrighted by Retrosheet. Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.
+> The information used here was obtained free of charge from and is copyrighted by Retrosheet. Interested parties may contact Retrosheet at www.retrosheet.org.
 
 ### Usage Terms
 
-Per Retrosheet's terms:
-- Data is provided free of charge for personal, non-commercial use
-- Commercial use requires permission from Retrosheet
-- Any publication or distribution must include proper attribution
+Per [Retrosheet's terms](https://www.retrosheet.org/notice.txt), you are free to:
+- Sell the data
+- Give it away
+- Produce commercial products based on the data
 
-Please review:
-- [Retrosheet Terms](https://www.retrosheet.org/notice.txt)
-- [Chadwick Bureau License](https://github.com/chadwickbureau/retrosplits/blob/master/LICENSE)
+The only requirement is that the above Retrosheet notice must appear prominently in any distribution or product using the data.
 
 ## License
 
