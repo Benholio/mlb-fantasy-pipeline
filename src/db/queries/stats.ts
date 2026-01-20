@@ -97,7 +97,7 @@ export async function upsertBatterStats(sql: Sql, stats: BatterStatsInsert): Pro
       ${stats.reached_on_interference}, ${stats.reached_on_error},
       ${stats.is_dh}, ${stats.is_ph}, ${stats.is_pr},
       ${stats.team_won}, ${stats.team_lost}, ${stats.team_tied},
-      ${stats.stat_type}, ${stats.lineup_position}, ${stats.batting_seq}
+      ${stats.stat_type ?? ''}, ${stats.lineup_position}, ${stats.batting_seq}
     )
     ON CONFLICT (game_id, player_id, stat_type) DO UPDATE SET
       team_id = EXCLUDED.team_id,
@@ -157,7 +157,7 @@ export async function upsertPitcherStats(sql: Sql, stats: PitcherStatsInsert): P
       ${stats.won}, ${stats.lost}, ${stats.saved},
       ${stats.game_started}, ${stats.game_finished}, ${stats.complete_game},
       ${stats.team_won}, ${stats.team_lost}, ${stats.team_tied},
-      ${stats.stat_type}, ${stats.pitching_seq}
+      ${stats.stat_type ?? ''}, ${stats.pitching_seq}
     )
     ON CONFLICT (game_id, player_id, stat_type) DO UPDATE SET
       team_id = EXCLUDED.team_id,

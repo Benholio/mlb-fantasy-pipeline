@@ -155,7 +155,6 @@ export async function transformBattingData(
   const teams = new Set<string>();
 
   // Process in batches
-  let offset = 0;
   let hasMore = true;
 
   while (hasMore) {
@@ -165,7 +164,6 @@ export async function transformBattingData(
         AND processed = false
       ORDER BY id
       LIMIT ${TRANSFORM_BATCH_SIZE}
-      OFFSET ${offset}
     `;
 
     if (rows.length === 0) {
@@ -261,8 +259,6 @@ export async function transformBattingData(
       SET processed = true
       WHERE id = ANY(${rowIds}::int[])
     `;
-
-    offset += rows.length;
   }
 
   return {
@@ -285,7 +281,6 @@ export async function transformPitchingData(
   const players = new Set<string>();
   const teams = new Set<string>();
 
-  let offset = 0;
   let hasMore = true;
 
   while (hasMore) {
@@ -295,7 +290,6 @@ export async function transformPitchingData(
         AND processed = false
       ORDER BY id
       LIMIT ${TRANSFORM_BATCH_SIZE}
-      OFFSET ${offset}
     `;
 
     if (rows.length === 0) {
@@ -391,8 +385,6 @@ export async function transformPitchingData(
       SET processed = true
       WHERE id = ANY(${rowIds}::int[])
     `;
-
-    offset += rows.length;
   }
 
   return {
