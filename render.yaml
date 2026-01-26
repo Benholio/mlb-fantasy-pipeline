@@ -1,6 +1,6 @@
 databases:
   - name: mlb-fantasy-db
-    plan: basic
+    plan: starter
     databaseName: mlb_fantasy
     user: mlb
     region: oregon
@@ -29,7 +29,6 @@ services:
   - type: web
     name: mlb-fantasy-web
     runtime: static
-    region: oregon
     rootDir: web
     buildCommand: npm install && npm run build
     staticPublishPath: dist
