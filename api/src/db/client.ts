@@ -35,9 +35,21 @@ export function createClient(dbConfig: DatabaseConfig): Sql {
   });
 }
 
+export function createClientFromUrl(url: string): Sql {
+  return postgres(url, {
+    max: 10,
+    idle_timeout: 20,
+    connect_timeout: 10,
+    ssl: 'require',
+  });
+}
+
 export function getSql(): Sql {
   if (!sqlInstance) {
-    sqlInstance = createClient(getConfig());
+    const databaseUrl = process.env.DATABASE_URL;
+    sqlInstance = databaseUrl
+      ? createClientFromUrl(databaseUrl)
+      : createClient(getConfig());
   }
   return sqlInstance;
 }
