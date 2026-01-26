@@ -3,7 +3,13 @@
   command = "npm ci && npm run build"
   publish = "dist"
 
-# SPA fallback - redirect all routes to index.html
+# Let /data/* requests 404 naturally (don't redirect to SPA)
+[[redirects]]
+  from = "/data/*"
+  to = "/data/:splat"
+  status = 200
+
+# SPA fallback - redirect all other routes to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"

@@ -77,7 +77,12 @@ async function fetchDateData(dateStr: string): Promise<DateData | null> {
     if (!response.ok) {
       return null;
     }
-    return response.json();
+    // Check content-type to avoid parsing HTML as JSON (SPA fallback)
+    const contentType = response.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      return null;
+    }
+    return await response.json();
   } catch {
     return null;
   }
