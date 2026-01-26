@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getRulesets, getTopPerformances } from '@/api/client';
 import { BaseballCardCompact } from '@/components/BaseballCard';
 import { Button } from '@/components/ui/button';
 import { Loader2, Search } from 'lucide-react';
@@ -13,6 +11,48 @@ const SUGGESTED_DATES = [
   { date: '1941-07-17', label: 'July 17, 1941', story: "DiMaggio's 56-game streak ends" },
   { date: '1998-09-08', label: 'September 8, 1998', story: "McGwire's 62nd HR" },
 ];
+
+interface BattingStats {
+  atBats: number;
+  hits: number;
+  doubles: number;
+  triples: number;
+  homeRuns: number;
+  runs: number;
+  rbi: number;
+  walks: number;
+  stolenBases: number;
+  hitByPitch: number;
+}
+
+interface PitchingStats {
+  inningsPitched: string;
+  hitsAllowed: number;
+  runsAllowed: number;
+  earnedRuns: number;
+  walks: number;
+  strikeouts: number;
+  hitBatters: number;
+  win: boolean;
+  loss: boolean;
+  save: boolean;
+  completeGame: boolean;
+}
+
+interface Performance {
+  playerId: string;
+  playerName: string;
+  gameId: string;
+  date: string;
+  points: string;
+  stats: BattingStats | PitchingStats;
+}
+
+interface DateData {
+  date: string;
+  batting: Performance[];
+  pitching: Performance[];
+}
 
 function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
@@ -28,41 +68,49 @@ function formatDateForDisplay(dateStr: string): string {
   });
 }
 
+async function fetchDateData(dateStr: string): Promise<DateData | null> {
+  const [year, month, day] = dateStr.split('-');
+  const url = `/data/${year}/${month}-${day}.json`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return null;
+    }
+    return response.json();
+  } catch {
+    return null;
+  }
+}
+
 export function HomePage() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [searchDate, setSearchDate] = useState<string>('');
+  const [data, setData] = useState<DateData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  const { data: rulesets } = useQuery({
-    queryKey: ['rulesets'],
-    queryFn: getRulesets,
-  });
+  const handleSearch = async () => {
+    if (!selectedDate) return;
 
-  const defaultRuleset = rulesets?.rulesets[0]?.id;
+    setSearchDate(selectedDate);
+    setIsLoading(true);
+    setHasSearched(true);
 
-  const {
-    data: topPerformances,
-    isLoading,
-    isFetching,
-  } = useQuery({
-    queryKey: ['topPerformances', defaultRuleset, searchDate],
-    queryFn: () =>
-      getTopPerformances({
-        ruleset: defaultRuleset!,
-        date: searchDate,
-        limit: 10,
-      }),
-    enabled: !!defaultRuleset && !!searchDate,
-  });
-
-  const handleSearch = () => {
-    if (selectedDate) {
-      setSearchDate(selectedDate);
-    }
+    const result = await fetchDateData(selectedDate);
+    setData(result);
+    setIsLoading(false);
   };
 
-  const handleSuggestedDate = (date: string) => {
+  const handleSuggestedDate = async (date: string) => {
     setSelectedDate(date);
     setSearchDate(date);
+    setIsLoading(true);
+    setHasSearched(true);
+
+    const result = await fetchDateData(date);
+    setData(result);
+    setIsLoading(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -82,7 +130,7 @@ export function HomePage() {
     }
   }, []);
 
-  const hasResults = topPerformances && (topPerformances.batting.length > 0 || topPerformances.pitching.length > 0);
+  const hasResults = data && (data.batting.length > 0 || data.pitching.length > 0);
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex flex-col">
@@ -111,7 +159,7 @@ export function HomePage() {
             disabled={!selectedDate || isLoading}
             className="w-full sm:w-auto bg-vintage-red hover:bg-vintage-red/90 text-vintage-cream px-6 py-3 text-lg font-semibold"
           >
-            {isFetching ? (
+            {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <>
@@ -141,7 +189,7 @@ export function HomePage() {
       </section>
 
       {/* Results Section */}
-      {searchDate && (
+      {hasSearched && (
         <section className="flex-1 px-4 pb-12">
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -157,13 +205,13 @@ export function HomePage() {
               {/* Top Performers Lists */}
               <div className="grid md:grid-cols-2 gap-8">
                 {/* Top Batters */}
-                {topPerformances.batting.length > 0 && (
+                {data.batting.length > 0 && (
                   <div>
                     <h3 className="font-serif text-lg text-vintage-navy mb-3 border-b-2 border-vintage-gold pb-2">
                       Top Batters
                     </h3>
                     <div className="space-y-2">
-                      {topPerformances.batting.slice(0, 5).map((perf, idx) => (
+                      {data.batting.slice(0, 5).map((perf, idx) => (
                         <BaseballCardCompact
                           key={`${perf.playerId}-${perf.gameId}`}
                           performance={perf}
@@ -176,13 +224,13 @@ export function HomePage() {
                 )}
 
                 {/* Top Pitchers */}
-                {topPerformances.pitching.length > 0 && (
+                {data.pitching.length > 0 && (
                   <div>
                     <h3 className="font-serif text-lg text-vintage-navy mb-3 border-b-2 border-vintage-gold pb-2">
                       Top Pitchers
                     </h3>
                     <div className="space-y-2">
-                      {topPerformances.pitching.slice(0, 5).map((perf, idx) => (
+                      {data.pitching.slice(0, 5).map((perf, idx) => (
                         <BaseballCardCompact
                           key={`${perf.playerId}-${perf.gameId}`}
                           performance={perf}
@@ -206,7 +254,7 @@ export function HomePage() {
       )}
 
       {/* Empty state before search */}
-      {!searchDate && (
+      {!hasSearched && (
         <section className="flex-1 flex items-center justify-center px-4 pb-12">
           <div className="text-center text-vintage-brown">
             <p className="text-lg mb-2">Select a date to discover fantasy performances</p>
