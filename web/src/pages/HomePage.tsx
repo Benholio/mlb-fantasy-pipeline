@@ -1,12 +1,37 @@
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getRulesets, getTopPerformances } from '@/api/client';
+import { BaseballCardCompact } from '@/components/BaseballCard';
 import { Button } from '@/components/ui/button';
-import { StatLine } from '@/components/StatLine';
-import { getRulesets, getLeaderboard, getTopPerformances, type BattingStats, type PitchingStats } from '@/api/client';
-import { Trophy, Calendar, Database, TrendingUp, Users, Loader2 } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
+
+// Famous dates in baseball history with their stories
+const SUGGESTED_DATES = [
+  { date: '1939-07-04', label: 'July 4, 1939', story: "Lou Gehrig's farewell" },
+  { date: '1961-10-01', label: 'October 1, 1961', story: "Roger Maris hits #61" },
+  { date: '1974-04-08', label: 'April 8, 1974', story: "Hank Aaron's 715th HR" },
+  { date: '1941-07-17', label: 'July 17, 1941', story: "DiMaggio's 56-game streak ends" },
+  { date: '1998-09-08', label: 'September 8, 1998', story: "McGwire's 62nd HR" },
+];
+
+function formatDateForInput(date: Date): string {
+  return date.toISOString().split('T')[0] ?? '';
+}
+
+function formatDateForDisplay(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
 
 export function HomePage() {
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [searchDate, setSearchDate] = useState<string>('');
+
   const { data: rulesets } = useQuery({
     queryKey: ['rulesets'],
     queryFn: getRulesets,
@@ -14,256 +39,180 @@ export function HomePage() {
 
   const defaultRuleset = rulesets?.rulesets[0]?.id;
 
-  const { data: topBatters, isLoading: loadingBatters } = useQuery({
-    queryKey: ['leaderboard', defaultRuleset, 'batting'],
-    queryFn: () =>
-      getLeaderboard({
-        ruleset: defaultRuleset!,
-        type: 'batting',
-        limit: 5,
-      }),
-    enabled: !!defaultRuleset,
-  });
-
-  const { data: topPitchers, isLoading: loadingPitchers } = useQuery({
-    queryKey: ['leaderboard', defaultRuleset, 'pitching'],
-    queryFn: () =>
-      getLeaderboard({
-        ruleset: defaultRuleset!,
-        type: 'pitching',
-        limit: 5,
-      }),
-    enabled: !!defaultRuleset,
-  });
-
-  // Get today's date in MM-DD format
-  const today = new Date();
-  const monthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-  const { data: todayInHistory } = useQuery({
-    queryKey: ['topPerformances', defaultRuleset, monthDay],
+  const {
+    data: topPerformances,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: ['topPerformances', defaultRuleset, searchDate],
     queryFn: () =>
       getTopPerformances({
         ruleset: defaultRuleset!,
-        monthDay,
-        limit: 5,
+        date: searchDate,
+        limit: 10,
       }),
-    enabled: !!defaultRuleset,
+    enabled: !!defaultRuleset && !!searchDate,
   });
 
+  const handleSearch = () => {
+    if (selectedDate) {
+      setSearchDate(selectedDate);
+    }
+  };
+
+  const handleSuggestedDate = (date: string) => {
+    setSelectedDate(date);
+    setSearchDate(date);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Set a random suggested date on first load for demo
+  useEffect(() => {
+    if (!selectedDate && SUGGESTED_DATES.length > 0) {
+      const randomIndex = Math.floor(Math.random() * SUGGESTED_DATES.length);
+      const suggestedDate = SUGGESTED_DATES[randomIndex];
+      if (suggestedDate) {
+        setSelectedDate(suggestedDate.date);
+      }
+    }
+  }, []);
+
+  const hasResults = topPerformances && (topPerformances.batting.length > 0 || topPerformances.pitching.length > 0);
+
   return (
-    <div className="space-y-8">
+    <div className="min-h-[calc(100vh-8rem)] flex flex-col">
       {/* Hero Section */}
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">MLB Fantasy Baseball Dashboard</h1>
-        <p className="mt-2 text-lg text-muted-foreground">
-          Explore historical baseball data, view leaderboards, and analyze player performances
+      <section className="text-center py-12 px-4">
+        <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl font-bold text-vintage-navy mb-4 vintage-text-shadow">
+          Fantasy Flashback
+        </h1>
+        <p className="text-lg md:text-xl text-vintage-brown max-w-2xl mx-auto mb-8">
+          Relive the greatest fantasy performances from any day in baseball history
         </p>
-      </div>
 
-      {/* Quick Links */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Leaderboards</CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">View top fantasy performers by year and stat type</p>
-            <Button asChild className="mt-4 w-full" variant="outline">
-              <Link to="/leaderboards">View Leaderboards</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Date Explorer</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Browse games by date and find top performances on any day
-            </p>
-            <Button asChild className="mt-4 w-full" variant="outline">
-              <Link to="/explore">Explore Dates</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Query Builder</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Build custom queries with advanced filters</p>
-            <Button asChild className="mt-4 w-full" variant="outline">
-              <Link to="/query">Build Query</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Performers */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Top Batters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Top Batters (All-Time)
-            </CardTitle>
-            <CardDescription>
-              {rulesets?.rulesets[0]?.name || 'Loading ruleset...'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingBatters ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : topBatters?.entries.length ? (
-              <div className="space-y-2">
-                {topBatters.entries.map((entry) => (
-                  <Link
-                    key={entry.playerId}
-                    to={`/players/${entry.playerId}`}
-                    className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                        {entry.rank}
-                      </span>
-                      <div>
-                        <p className="font-medium">{entry.playerName}</p>
-                        <p className="text-xs text-muted-foreground">{entry.games} games</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{entry.totalPoints}</p>
-                      <p className="text-xs text-muted-foreground">{entry.avgPoints} avg</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+        {/* Date Picker */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-6">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            onKeyDown={handleKeyDown}
+            min="1901-01-01"
+            max={formatDateForInput(new Date())}
+            className="flex-1 w-full sm:w-auto px-4 py-3 rounded-lg border-2 border-vintage-brown bg-vintage-cream text-vintage-navy font-medium text-lg focus:outline-none focus:ring-2 focus:ring-vintage-gold"
+          />
+          <Button
+            onClick={handleSearch}
+            disabled={!selectedDate || isLoading}
+            className="w-full sm:w-auto bg-vintage-red hover:bg-vintage-red/90 text-vintage-cream px-6 py-3 text-lg font-semibold"
+          >
+            {isFetching ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <p className="py-8 text-center text-muted-foreground">No data available</p>
+              <>
+                <Search className="h-5 w-5 mr-2" />
+                Go
+              </>
             )}
-          </CardContent>
-        </Card>
+          </Button>
+        </div>
 
-        {/* Top Pitchers */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Top Pitchers (All-Time)
-            </CardTitle>
-            <CardDescription>
-              {rulesets?.rulesets[0]?.name || 'Loading ruleset...'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingPitchers ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : topPitchers?.entries.length ? (
-              <div className="space-y-2">
-                {topPitchers.entries.map((entry) => (
-                  <Link
-                    key={entry.playerId}
-                    to={`/players/${entry.playerId}`}
-                    className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                        {entry.rank}
-                      </span>
-                      <div>
-                        <p className="font-medium">{entry.playerName}</p>
-                        <p className="text-xs text-muted-foreground">{entry.games} games</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{entry.totalPoints}</p>
-                      <p className="text-xs text-muted-foreground">{entry.avgPoints} avg</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="py-8 text-center text-muted-foreground">No data available</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        {/* Suggested Dates */}
+        <div className="text-sm text-vintage-brown">
+          <span className="mr-2">Try:</span>
+          {SUGGESTED_DATES.map((item, index) => (
+            <span key={item.date}>
+              <button
+                onClick={() => handleSuggestedDate(item.date)}
+                className="text-vintage-navy hover:text-vintage-red underline underline-offset-2 transition-colors"
+                title={item.story}
+              >
+                {item.label}
+              </button>
+              {index < SUGGESTED_DATES.length - 1 && <span className="mx-2">•</span>}
+            </span>
+          ))}
+        </div>
+      </section>
 
-      {/* This Day in History */}
-      {todayInHistory && (todayInHistory.batting.length > 0 || todayInHistory.pitching.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              This Day in Baseball History
-            </CardTitle>
-            <CardDescription>
-              Top performances on {today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} across all
-              years
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 md:grid-cols-2">
-              {todayInHistory.batting.length > 0 && (
-                <div>
-                  <h4 className="mb-3 font-semibold">Batting</h4>
-                  <div className="space-y-2">
-                    {todayInHistory.batting.slice(0, 3).map((perf) => (
-                      <Link
-                        key={`${perf.playerId}-${perf.gameId}`}
-                        to={`/players/${perf.playerId}`}
-                        className="block rounded-lg border p-3 transition-colors hover:bg-muted"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{perf.playerName}</span>
-                          <span className="font-bold text-primary">{perf.points} pts</span>
-                        </div>
-                        <StatLine stats={perf.stats as BattingStats} type="batting" compact />
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {new Date(perf.date).getFullYear()}
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {todayInHistory.pitching.length > 0 && (
-                <div>
-                  <h4 className="mb-3 font-semibold">Pitching</h4>
-                  <div className="space-y-2">
-                    {todayInHistory.pitching.slice(0, 3).map((perf) => (
-                      <Link
-                        key={`${perf.playerId}-${perf.gameId}`}
-                        to={`/players/${perf.playerId}`}
-                        className="block rounded-lg border p-3 transition-colors hover:bg-muted"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{perf.playerName}</span>
-                          <span className="font-bold text-primary">{perf.points} pts</span>
-                        </div>
-                        <StatLine stats={perf.stats as PitchingStats} type="pitching" compact />
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {new Date(perf.date).getFullYear()}
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* Results Section */}
+      {searchDate && (
+        <section className="flex-1 px-4 pb-12">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-12 w-12 animate-spin text-vintage-red" />
             </div>
-          </CardContent>
-        </Card>
+          ) : hasResults ? (
+            <div className="max-w-4xl mx-auto">
+              {/* Date Header */}
+              <h2 className="font-serif text-2xl md:text-3xl text-vintage-navy text-center mb-8">
+                {formatDateForDisplay(searchDate)}
+              </h2>
+
+              {/* Top Performers Lists */}
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Top Batters */}
+                {topPerformances.batting.length > 0 && (
+                  <div>
+                    <h3 className="font-serif text-lg text-vintage-navy mb-3 border-b-2 border-vintage-gold pb-2">
+                      Top Batters
+                    </h3>
+                    <div className="space-y-2">
+                      {topPerformances.batting.slice(0, 5).map((perf, idx) => (
+                        <BaseballCardCompact
+                          key={`${perf.playerId}-${perf.gameId}`}
+                          performance={perf}
+                          type="batting"
+                          rank={idx + 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Pitchers */}
+                {topPerformances.pitching.length > 0 && (
+                  <div>
+                    <h3 className="font-serif text-lg text-vintage-navy mb-3 border-b-2 border-vintage-gold pb-2">
+                      Top Pitchers
+                    </h3>
+                    <div className="space-y-2">
+                      {topPerformances.pitching.slice(0, 5).map((perf, idx) => (
+                        <BaseballCardCompact
+                          key={`${perf.playerId}-${perf.gameId}`}
+                          performance={perf}
+                          type="pitching"
+                          rank={idx + 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <p className="text-vintage-brown text-lg">
+                No games found for this date. Try a different date during the baseball season.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Empty state before search */}
+      {!searchDate && (
+        <section className="flex-1 flex items-center justify-center px-4 pb-12">
+          <div className="text-center text-vintage-brown">
+            <p className="text-lg mb-2">Select a date to discover fantasy performances</p>
+            <p className="text-sm opacity-75">Data available from 1901 to present</p>
+          </div>
+        </section>
       )}
     </div>
   );

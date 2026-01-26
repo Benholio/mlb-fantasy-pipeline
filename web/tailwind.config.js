@@ -45,6 +45,17 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Vintage color palette for Fantasy Flashback
+        vintage: {
+          cream: '#F5F0E1',
+          red: '#8B2635',
+          navy: '#1E3A5F',
+          gold: '#C9A227',
+          brown: '#5C4033',
+        },
+      },
+      fontFamily: {
+        serif: ['Playfair Display', 'Georgia', 'serif'],
       },
       borderRadius: {
         lg: 'var(--radius)',
