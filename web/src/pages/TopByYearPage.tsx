@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { BaseballCardCompact } from '@/components/BaseballCard';
 import { Loader2 } from 'lucide-react';
 import type { BattingStats, PitchingStats } from '@/api/client';
@@ -63,12 +64,15 @@ function formatDate(dateStr: string): string {
 }
 
 export function TopByYearPage() {
+  const { year: yearParam } = useParams<{ year?: string }>();
+  const navigate = useNavigate();
   const [availableYears, setAvailableYears] = useState<number[]>([]);
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [data, setData] = useState<YearData | null>(null);
   const [isLoadingIndex, setIsLoadingIndex] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [indexError, setIndexError] = useState(false);
+
+  const selectedYear = yearParam ? parseInt(yearParam, 10) : null;
 
   // Load available years on mount
   useEffect(() => {
@@ -77,22 +81,26 @@ export function TopByYearPage() {
       const index = await fetchYearIndex();
       if (index && index.years.length > 0) {
         setAvailableYears(index.years);
-        setSelectedYear(index.years[0]!);
+        // If no year in URL, redirect to the most recent year
+        if (!yearParam) {
+          navigate(`/top-by-year/${index.years[0]}`, { replace: true });
+        }
       } else {
         setIndexError(true);
       }
       setIsLoadingIndex(false);
     }
     loadIndex();
-  }, []);
+  }, [yearParam, navigate]);
 
   // Load year data when selection changes
   useEffect(() => {
     if (!selectedYear) return;
 
+    const year = selectedYear;
     async function loadData() {
       setIsLoadingData(true);
-      const result = await fetchYearData(selectedYear!);
+      const result = await fetchYearData(year);
       setData(result);
       setIsLoadingData(false);
     }
@@ -129,7 +137,7 @@ export function TopByYearPage() {
             <select
               id="year-select"
               value={selectedYear ?? ''}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              onChange={(e) => navigate(`/top-by-year/${e.target.value}`)}
               className="px-4 py-3 rounded-lg border-2 border-vintage-brown bg-vintage-cream text-vintage-navy font-medium text-lg focus:outline-none focus:ring-2 focus:ring-vintage-gold"
             >
               {availableYears.map((year) => (
