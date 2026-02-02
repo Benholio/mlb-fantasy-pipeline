@@ -158,11 +158,6 @@ export function TopByYearPage() {
           </div>
         ) : hasResults ? (
           <div className="max-w-4xl mx-auto">
-            {/* Year Header */}
-            <h2 className="font-serif text-2xl md:text-3xl text-vintage-navy text-center mb-8">
-              {selectedYear} Season
-            </h2>
-
             {/* Top Performers Lists */}
             <div className="grid md:grid-cols-2 gap-8">
               {/* Top Batters */}

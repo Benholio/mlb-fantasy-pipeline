@@ -58,16 +58,6 @@ function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
 }
 
-function formatDateForDisplay(dateStr: string): string {
-  const date = new Date(dateStr + 'T12:00:00');
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
 async function fetchDateData(dateStr: string): Promise<DateData | null> {
   const [year, month, day] = dateStr.split('-');
   const url = `/data/${year}/${month}-${day}.json`;
@@ -90,7 +80,6 @@ async function fetchDateData(dateStr: string): Promise<DateData | null> {
 
 export function HomePage() {
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [searchDate, setSearchDate] = useState<string>('');
   const [data, setData] = useState<DateData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -98,7 +87,6 @@ export function HomePage() {
   const handleSearch = async () => {
     if (!selectedDate) return;
 
-    setSearchDate(selectedDate);
     setIsLoading(true);
     setHasSearched(true);
 
@@ -109,7 +97,6 @@ export function HomePage() {
 
   const handleSuggestedDate = async (date: string) => {
     setSelectedDate(date);
-    setSearchDate(date);
     setIsLoading(true);
     setHasSearched(true);
 
@@ -202,11 +189,6 @@ export function HomePage() {
             </div>
           ) : hasResults ? (
             <div className="max-w-4xl mx-auto">
-              {/* Date Header */}
-              <h2 className="font-serif text-2xl md:text-3xl text-vintage-navy text-center mb-8">
-                {formatDateForDisplay(searchDate)}
-              </h2>
-
               {/* Top Performers Lists */}
               <div className="grid md:grid-cols-2 gap-8">
                 {/* Top Batters */}
