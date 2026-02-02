@@ -1,6 +1,6 @@
 databases:
   - name: mlb-fantasy-db
-    plan: starter
+    plan: free
     databaseName: mlb_fantasy
     user: mlb
     region: oregon
