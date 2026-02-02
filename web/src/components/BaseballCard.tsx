@@ -4,9 +4,10 @@ interface BaseballCardProps {
   performance: TopPerformance;
   type: 'batting' | 'pitching';
   rank?: number;
+  dateLabel?: string;
 }
 
-export function BaseballCardCompact({ performance, type, rank }: BaseballCardProps) {
+export function BaseballCardCompact({ performance, type, rank, dateLabel }: BaseballCardProps) {
   const stats = performance.stats;
   const year = new Date(performance.date).getFullYear();
 
@@ -23,7 +24,7 @@ export function BaseballCardCompact({ performance, type, rank }: BaseballCardPro
             <span className="font-serif font-semibold text-vintage-navy truncate">
               {performance.playerName}
             </span>
-            <span className="text-vintage-brown text-sm">({year})</span>
+            <span className="text-vintage-brown text-sm">({dateLabel ?? year})</span>
           </div>
           <div className="text-xs text-vintage-brown truncate">
             {type === 'batting' ? (

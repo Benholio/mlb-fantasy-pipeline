@@ -27,6 +27,7 @@
     "db:migrate": "tsx src/db/migrations/runner.ts",
     "db:reset": "tsx scripts/reset-db.ts",
     "generate-data": "tsx scripts/generate-static-data.ts",
+    "generate-yearly-top": "tsx scripts/generate-yearly-top.ts",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
