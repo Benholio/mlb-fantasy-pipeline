@@ -56,6 +56,11 @@ function CompactPitchingStats({ stats }: { stats: PitchingStats }) {
   if (stats.win) parts.push('W');
   if (stats.loss) parts.push('L');
   if (stats.save) parts.push('SV');
-  parts.push(`${stats.inningsPitched} IP`, `${stats.strikeouts} K`);
+  if (stats.completeGame) parts.push('CG');
+  parts.push(`${stats.inningsPitched} IP`);
+  parts.push(`${stats.hitsAllowed} H`);
+  parts.push(`${stats.earnedRuns} ER`);
+  parts.push(`${stats.strikeouts} K`);
+  if (stats.walks > 0) parts.push(`${stats.walks} BB`);
   return <>{parts.join(', ')}</>;
 }
