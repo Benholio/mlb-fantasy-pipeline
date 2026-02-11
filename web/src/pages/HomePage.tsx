@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { BaseballCardCompact } from '@/components/BaseballCard';
 import { Button } from '@/components/ui/button';
 import { Loader2, Search } from 'lucide-react';
@@ -79,30 +80,15 @@ async function fetchDateData(dateStr: string): Promise<DateData | null> {
 }
 
 export function HomePage() {
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const { date: dateParam } = useParams<{ date?: string }>();
+  const navigate = useNavigate();
+  const [inputDate, setInputDate] = useState<string>('');
   const [data, setData] = useState<DateData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSearch = async () => {
-    if (!selectedDate) return;
-
-    setIsLoading(true);
-    setHasSearched(true);
-
-    const result = await fetchDateData(selectedDate);
-    setData(result);
-    setIsLoading(false);
-  };
-
-  const handleSuggestedDate = async (date: string) => {
-    setSelectedDate(date);
-    setIsLoading(true);
-    setHasSearched(true);
-
-    const result = await fetchDateData(date);
-    setData(result);
-    setIsLoading(false);
+  const handleSearch = () => {
+    if (!inputDate) return;
+    navigate(`/flashback/${inputDate}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -111,13 +97,34 @@ export function HomePage() {
     }
   };
 
-  // Set a random suggested date on first load for demo
+  // Sync input field with URL param
   useEffect(() => {
-    if (!selectedDate && SUGGESTED_DATES.length > 0) {
+    if (dateParam) {
+      setInputDate(dateParam);
+    }
+  }, [dateParam]);
+
+  // Load data when URL date param changes
+  useEffect(() => {
+    if (!dateParam) return;
+
+    const date = dateParam;
+    async function loadData() {
+      setIsLoading(true);
+      const result = await fetchDateData(date);
+      setData(result);
+      setIsLoading(false);
+    }
+    loadData();
+  }, [dateParam]);
+
+  // Pre-fill input with a random suggested date when landing on /
+  useEffect(() => {
+    if (!dateParam && !inputDate && SUGGESTED_DATES.length > 0) {
       const randomIndex = Math.floor(Math.random() * SUGGESTED_DATES.length);
       const suggestedDate = SUGGESTED_DATES[randomIndex];
       if (suggestedDate) {
-        setSelectedDate(suggestedDate.date);
+        setInputDate(suggestedDate.date);
       }
     }
   }, []);
@@ -139,8 +146,8 @@ export function HomePage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-6">
           <input
             type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            value={inputDate}
+            onChange={(e) => setInputDate(e.target.value)}
             onKeyDown={handleKeyDown}
             min="1901-01-01"
             max={formatDateForInput(new Date())}
@@ -148,7 +155,7 @@ export function HomePage() {
           />
           <Button
             onClick={handleSearch}
-            disabled={!selectedDate || isLoading}
+            disabled={!inputDate || isLoading}
             className="w-full sm:w-auto bg-vintage-red hover:bg-vintage-red/90 text-vintage-cream px-6 py-3 text-lg font-semibold"
           >
             {isLoading ? (
@@ -168,7 +175,7 @@ export function HomePage() {
           {SUGGESTED_DATES.map((item, index) => (
             <span key={item.date}>
               <button
-                onClick={() => handleSuggestedDate(item.date)}
+                onClick={() => navigate(`/flashback/${item.date}`)}
                 className="text-vintage-navy hover:text-vintage-red underline underline-offset-2 transition-colors"
                 title={item.story}
               >
@@ -181,7 +188,7 @@ export function HomePage() {
       </section>
 
       {/* Results Section */}
-      {hasSearched && (
+      {dateParam && (
         <section className="flex-1 px-4 pb-12">
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -241,7 +248,7 @@ export function HomePage() {
       )}
 
       {/* Empty state before search */}
-      {!hasSearched && (
+      {!dateParam && (
         <section className="flex-1 flex items-center justify-center px-4 pb-12">
           <div className="text-center text-vintage-brown">
             <p className="text-lg mb-2">Select a date to discover fantasy performances</p>

@@ -9,6 +9,7 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/flashback/:date" element={<HomePage />} />
           <Route path="/top-by-year" element={<TopByYearPage />} />
           <Route path="/top-by-year/:year" element={<TopByYearPage />} />
         </Routes>

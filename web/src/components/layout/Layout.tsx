@@ -16,7 +16,7 @@ export function Layout({ children }: LayoutProps) {
             <Link
               to="/"
               className={`font-serif text-lg transition-colors ${
-                location.pathname === '/'
+                location.pathname === '/' || location.pathname.startsWith('/flashback')
                   ? 'text-vintage-red font-semibold'
                   : 'text-vintage-navy hover:text-vintage-red'
               }`}
@@ -27,7 +27,7 @@ export function Layout({ children }: LayoutProps) {
             <Link
               to="/top-by-year"
               className={`font-serif text-lg transition-colors ${
-                location.pathname === '/top-by-year'
+                location.pathname.startsWith('/top-by-year')
                   ? 'text-vintage-red font-semibold'
                   : 'text-vintage-navy hover:text-vintage-red'
               }`}
